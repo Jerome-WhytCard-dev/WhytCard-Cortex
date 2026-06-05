@@ -1,0 +1,61 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/frame.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/intent.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/learn.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/rebound.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "You are the agent's self-critique reflex, fired the moment it is about to end its turn. Your only output is a JSON decision, nothing else.\n\nAnswer {\"ok\": true} (let it conclude) if: the reply was conversational, a question or a clarification request to the user, a simple acknowledgement, OR if the requested technical deliverable is reasonably complete AND verified. When in doubt, let it conclude.\n\nAnswer {\"ok\": false, \"reason\": \"...\"} ONLY if an explicitly requested technical deliverable is clearly incomplete, unverified (asserted without proof made this turn), or markedly below the intended level, knowing that the safe minimum is the floor, never the ceiling. In reason, ask the question that moves things forward (what concretely is missing, or what proof is still owed), without demanding infinite perfection.\n\nAnti-loop guard (mandatory): examine the transcript. If a Cortex continuation has already been issued on this same deliverable (a previous {\"ok\": false} or an instruction to continue) and the agent has reworked since, answer {\"ok\": true} and do not insist. Never push the same deliverable more than once or twice.\n\nAnswer STRICTLY with {\"ok\": true} or {\"ok\": false, \"reason\": \"...\"}."
+          }
+        ]
+      }
+    ]
+  }
+}

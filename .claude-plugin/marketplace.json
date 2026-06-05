@@ -1,0 +1,15 @@
+{
+  "name": "whytcard-cortex",
+  "owner": {
+    "name": "Jérôme Ethenoz (WhytCard)",
+    "url": "https://github.com/Jerome-WhytCard-dev"
+  },
+  "plugins": [
+    {
+      "name": "whytcard-cortex",
+      "source": "./",
+      "description": "A reasoning pipeline as reflex hooks: the right question asked at the right moments of the agent cycle, not orders.",
+      "version": "0.1.0"
+    }
+  ]
+}

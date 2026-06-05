@@ -1,0 +1,21 @@
+{
+  "name": "whytcard-cortex",
+  "version": "0.1.0",
+  "description": "A reasoning pipeline as reflex hooks for Claude Code. At the boundaries of the agent cycle, Cortex asks the right question instead of dictating an answer, to make the agent reason for itself rather than piling instructions on it. Questions, not orders.",
+  "author": {
+    "name": "Jérôme Ethenoz (WhytCard)",
+    "url": "https://github.com/Jerome-WhytCard-dev"
+  },
+  "homepage": "https://github.com/Jerome-WhytCard-dev/WhytCard-Cortex",
+  "repository": "https://github.com/Jerome-WhytCard-dev/WhytCard-Cortex",
+  "license": "MIT",
+  "keywords": [
+    "reasoning",
+    "hooks",
+    "reflexion",
+    "anti-flood",
+    "prove-dont-assume",
+    "cognitive-pipeline",
+    "questions-not-orders"
+  ]
+}
