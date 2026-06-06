@@ -73,8 +73,8 @@ const msg = [
   "[Cortex - What does this teach you?]",
   "This result just came in. Before moving on:",
   "  - What does it actually teach you? Does it confirm or contradict what you believed?",
-  "  - Does your plan still hold, or does this result change it?",
-  "If it contradicts an assumption, which one, and what do you fix before moving on?",
+  "  - Does your plan still hold, or does this result change it? If it contradicts an assumption, which one, and what do you fix now?",
+  "  - Is there a reusable understanding here - a method worth carrying forward - or is it a one-off?",
 ].join("\n");
 
 process.stdout.write(

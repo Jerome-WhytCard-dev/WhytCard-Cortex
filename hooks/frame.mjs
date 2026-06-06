@@ -1,29 +1,46 @@
 #!/usr/bin/env node
 // WhytCard-Cortex, UserPromptSubmit hook ("Frame before acting").
-// On each prompt, inject the single orienting question that carries both forces:
-// rigor (what do I know vs. assume) and ambition (the minimum vs. the remarkable).
+// On each substantive prompt, inject the single orienting question that carries the forces
+// a good start needs at once: understand the real ask, separate what is KNOWN from what is
+// ASSUMED (and go to the ground truth for the gaps), use the tools actually available, look
+// one step ahead, and aim past the bare minimum.
 // Guidance only: it orients, it never blocks. Always exits 0.
 //
-// Why a fixed `command` here and not a `prompt` (LLM) hook: the framing question is
-// universal, so it needs no per-prompt LLM call. Free and instant beats slow and costly
-// on something that fires on every single prompt. (REASONING-PIPELINE.md, section 4.)
+// A fixed `command`, not a per-prompt LLM call: the framing question is universal, so it
+// stays free and instant on something that fires on every prompt. It steps aside only for a
+// pure pleasantry (a bare "thanks" / "ok"), so it does not flood non-tasks.
+// (REASONING-PIPELINE.md section 4, docs/DOCTRINE.md.)
 
 let raw = "";
 try {
   for await (const chunk of process.stdin) raw += chunk;
 } catch {
-  // the framing question does not depend on the prompt body
+  raw = "";
 }
-void raw;
+
+let prompt = "";
+try {
+  prompt = String((JSON.parse(raw) || {}).prompt || "");
+} catch {
+  prompt = "";
+}
+
+// Step aside for a pure pleasantry / acknowledgement: framing it is noise, not thought.
+// Conservative on purpose -- it only skips when the WHOLE prompt is an obvious non-task,
+// so it never suppresses a real (even short) request like "deploy" or "fix it".
+const trivial =
+  /^\s*(thanks?|thank you|thx|ok(ay)?|cool|nice|great|perfect|got it|merci|d'accord|parfait|bravo|👍|🙏)\s*[.!]*\s*$/i;
+if (prompt && trivial.test(prompt)) process.exit(0);
 
 const CONTEXT = [
   "[Cortex - Frame before acting]",
   "Before answering or acting, frame the turn (scaled to the stakes):",
   "  - Beneath the wording, what is actually being asked, and what is the real stake behind it?",
-  "  - What do you KNOW (verified this turn) versus what do you ASSUME? Whatever you have not proven, will you verify it or name it as unproven?",
-  "  - Is the stake reversible, visible, risky? So where to think first: verify, search, or act?",
+  "  - What do you KNOW (verified this turn) versus what do you ASSUME? For anything unproven, go to the ground truth - official docs, the actual code, a quick test - instead of trusting memory.",
+  "  - What tools, MCP servers and resources are available to you right now? Reach for the right existing one rather than improvising by hand.",
+  "  - Look one step ahead: what will this require next, what could go wrong, what are you not seeing yet?",
   "  - What level are you aiming for: the minimum that works, or the remarkable? The safe minimum is the floor, never the ceiling.",
-  "This framing orients everything else: what verified ground do you already stand on, and what is left to prove before moving?",
+  "Build your own method from these answers - that is the work, not waiting to be told how.",
 ].join("\n");
 
 process.stdout.write(

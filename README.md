@@ -1,20 +1,22 @@
 # WhytCard-Cortex
 
-A reasoning pipeline as hooks for Claude Code. At the boundaries of the agent cycle, Cortex asks the right question instead of dictating an answer. It replaces the pile of fixed skills and instructions with a few excellent questions, asked at the right moment, that make the agent think and let it find the best path for itself.
+A reasoning pipeline as hooks for Claude Code. At the boundaries of the agent cycle, Cortex asks the right question instead of dictating an answer. It replaces the pile of fixed skills and instructions with a few excellent questions, asked at the right moment, that make the agent think -- research, reach for the right available tool, go to the source -- and let it find the best path for itself.
 
 Questions, not orders. See `docs/DOCTRINE.md` for the rationale, `REASONING-PIPELINE.md` for the full analysis.
 
-## What is wired (5 moments, the loop of the action cycle)
+## What is wired (7 moments, the full session)
 
 | Moment | Event | Type | File | When it speaks |
 |---|---|---|---|---|
-| **Frame** | `UserPromptSubmit` | `command` | `hooks/frame.mjs` | On every prompt. Injects the framing question (what is really asked? know vs. assume? stakes? minimum or remarkable?). |
-| **Intention** | `PreToolUse` (`Bash\|PowerShell`) | `command` | `hooks/intent.mjs` | Only before a destructive or irreversible gesture (force-push, reset --hard, rm -rf, prod deploy, drop/truncate, publish). Silent on ordinary commands. |
-| **Learn** | `PostToolUse` (`Bash\|PowerShell`) | `command` | `hooks/learn.mjs` | Only after a carrier command (test, build, lint, install, push, deploy, curl, migration), at most once per 60 s per session. |
-| **Rebound** | `PostToolUseFailure` (`Bash\|PowerShell`) | `command` | `hooks/rebound.mjs` | Only when a command fails. Asks for the real cause and a different hypothesis, not one more identical retry. |
-| **Self-critique** | `Stop` | `prompt` (LLM) | inline in `hooks/hooks.json` | On every turn end. An LLM call judges whether the deliverable is finished and at the right level; can return "continue". See the honest caveat in `docs/DOCTRINE.md` (it is an external judge, not a question the agent asks itself). |
+| **Orient** | `SessionStart` (`startup\|resume\|clear\|compact`) | `command` | `hooks/orient.mjs` | At a session boundary. Asks where the work stands and what tools/MCP/docs are available to use; after a compaction, asks what essential thread to re-establish. |
+| **Frame** | `UserPromptSubmit` | `command` | `hooks/frame.mjs` | On every substantive prompt (steps aside for a bare "thanks"/"ok"). Asks: what is really asked? know vs. assume (and go to the docs/code for the gaps)? which available tool? one step ahead? minimum or remarkable? |
+| **Intention** | `PreToolUse` (`Bash\|PowerShell`) | `command` | `hooks/intent.mjs` | Only before a destructive or irreversible gesture (force-push, reset --hard, rm -rf, disk wipe, prod deploy, drop/truncate, publish, remote-branch delete). Silent on ordinary commands. |
+| **Learn** | `PostToolUse` (`Bash\|PowerShell`) | `command` | `hooks/learn.mjs` | Only after a carrier command (test, build, lint, install, push, deploy, curl, migration), at most once per 60 s per session. Also asks if there is a reusable understanding to keep. |
+| **Rebound** | `PostToolUseFailure` (`Bash\|PowerShell`) | `command` | `hooks/rebound.mjs` | Only when a command fails. Asks for the real cause, whether the answer is already in the docs/source, and a different hypothesis -- not one more identical retry. |
+| **Delegation** | `SubagentStop` | `command` | `hooks/delegate.mjs` | When a subagent returns. Asks whether to take its result at face value or cross-check it. |
+| **Self-critique** | `Stop` | `prompt` (LLM) | inline in `hooks/hooks.json` | On every turn end. An LLM call judges whether the deliverable is finished, verified and at the right level; can return "continue". See the honest caveat in `docs/DOCTRINE.md` (it is an external judge, not a question the agent asks itself). |
 
-Three of these five moments almost never speak (intention, learn, rebound are strongly filtered). Zero skills: that is the whole point. Cortex is reflex hooks only.
+Four of these seven moments almost never speak (orient only at a session boundary; intention, learn, rebound are strongly filtered). Zero skills: that is the whole point. Cortex is reflex hooks only -- it never tells the agent *how* to do a thing, it pushes the agent to find out (research, the right tool, the docs) and build its own method.
 
 ## Install
 
@@ -23,7 +25,7 @@ The repo is its own single-plugin marketplace (`.claude-plugin/marketplace.json`
 1. Add the marketplace: `/plugin marketplace add Jerome-WhytCard-dev/WhytCard-Cortex` (or the full GitHub repo URL).
 2. Enable the plugin: `/plugin install whytcard-cortex@whytcard-cortex`
 3. Reload without restarting: `/reload-plugins`
-4. Verify: `/plugin` (Installed tab) and `/hooks` (the 5 events should appear: UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, Stop).
+4. Verify: `/plugin` (Installed tab) and `/hooks` (the 7 events should appear: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, SubagentStop, Stop).
 
 From a local clone rather than GitHub, replace step 1 with `/plugin marketplace add <path-to-the-cloned-folder>`: the command accepts both an `owner/repo` and a local folder path.
 
@@ -31,26 +33,38 @@ The hooks load automatically on enable. No dependencies, the `.mjs` files are pl
 
 Rollback: `/plugin disable whytcard-cortex@whytcard-cortex`, then if needed `/plugin uninstall whytcard-cortex@whytcard-cortex` and `/plugin marketplace remove whytcard-cortex`.
 
-## Testing in real conditions
+## Testing
 
-The point: verify that these questions actually change the quality of the reasoning, not just that they show up.
+### Automated (zero dependencies)
 
-- Enable the plugin, then work normally on a real task.
-- Open the transcript (Ctrl+O) to watch the hooks fire. `/hooks` lists the registered hooks by event.
-- Observe: does framing orient the start of a turn better? Does intention slow down a poorly weighed grave gesture? Do "learn" after a test and "rebound" after a failure trigger a real correction? Does Stop catch the too-early stops without becoming a nuisance?
-- If a question adds nothing or annoys, that is a signal: reword it or remove it. Selectivity wins.
+The hooks ship with a test suite that runs every hook as a real process and asserts what it emits and when it stays silent. No install needed -- it uses Node's built-in runner:
 
-Quick out-of-session test of a hook (example `intent.mjs`):
+```bash
+node --test        # or: npm test
+```
+
+It covers emit/silence/throttle/filter behaviour for all seven hooks, robustness to malformed input, and that every manifest parses. CI (`.github/workflows/ci.yml`) runs it on Node 18-24.
+
+Quick one-off check of a single hook (example `intent.mjs`):
 
 ```bash
 printf '%s' '{"tool_input":{"command":"git push --force origin main"}}' | node hooks/intent.mjs
 ```
 
-It should emit a `hookSpecificOutput` JSON and exit with code 0. With `git status` instead, it should emit nothing.
+It should emit a `hookSpecificOutput` JSON and exit 0. With `git status` instead, it should emit nothing.
+
+### In real conditions
+
+The point: verify that these questions actually change the quality of the reasoning, not just that they show up.
+
+- Enable the plugin, then work normally on a real task.
+- Open the transcript (Ctrl+O) to watch the hooks fire. `/hooks` lists the registered hooks by event.
+- Observe: does orient make the agent inventory its tools and docs instead of improvising? Does framing orient the start of a turn better? Does intention slow down a poorly weighed grave gesture? Do "learn" after a test and "rebound" after a failure trigger a real correction? Does delegation make subagent results get cross-checked? Does Stop catch the too-early stops without becoming a nuisance?
+- If a question adds nothing or annoys, that is a signal: reword it or remove it. Selectivity wins.
 
 ## Tuning and disabling
 
-- **Disable just the self-critique (Stop)** if it is too intrusive or too costly: remove the `"Stop"` block from `hooks/hooks.json`. The other four moments stay active.
+- **Disable just the self-critique (Stop)** if it is too intrusive or too costly: remove the `"Stop"` block from `hooks/hooks.json`. The other six moments stay active.
 - **Stop cost, worth knowing.** The `prompt` hook fires on every turn end, including a plain "thanks" or a question asked to the user: those deliverable-free turns still pay an LLM call (which answers "let it conclude"). Over a session of many short exchanges, it adds up. Disabling the Stop block on purely conversational sessions is legitimate.
 - **Stop block cap.** 8 consecutive blocks by default, too high for a guardrail. Lower it to 2 or 3 via the `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` environment variable. The anti-loop guard is also written into the prompt (do not push the same deliverable more than once or twice).
 - **Sharper Stop judgment.** The Stop block has no `model` key; the Claude Code docs state that a `prompt` hook with no `model` runs on Haiku by default (fast, cheap). For a more demanding judgment, add `"model": "claude-sonnet-4-6"` (or another) to the `Stop` hook. Cost and latency rise accordingly.
@@ -58,17 +72,17 @@ It should emit a `hookSpecificOutput` JSON and exit with code 0. With `git statu
 - **Disable one specific moment**: remove its event block from `hooks/hooks.json` (for example `"PreToolUse"` to turn off intention).
 - **Disable everything**: `"disableAllHooks": true` in settings, or simply disable the plugin.
 
-## Moments in reserve (unwired)
+## Moments left unwired
 
-Three other moments of the cycle are ready but off, to be enabled one at a time and only once proven: orient (SessionStart, often already covered by a session-orientation mechanism), delegation (SubagentStop), consolidate (PreCompact). Details in `docs/DOCTRINE.md`. Do not wire them until the five current ones have proven themselves: each addition must earn its place, otherwise it is flood.
+Orient and delegation, once in reserve, are now wired (v0.2.0). The one moment deliberately left off is **consolidate** (PreCompact): that event does not accept `additionalContext`, so a question injected there would never reach the agent. The concern -- what must survive a compaction -- is handled instead by Orient on its `compact` source. Every other event in the ~30-event API stays unwired on purpose: each addition must earn its place by proving its question changes the reasoning, otherwise it is flood. Details in `docs/DOCTRINE.md`.
 
 ## Verification (what is proven)
 
-Everything rests on the official Claude Code docs, read at build time, and on real execution of the hooks (no assumptions):
+Everything rests on the official Claude Code docs and on real execution of the hooks -- no assumptions:
 
-- The 3 JSON manifests parse without error; the 5 hooks emit the right JSON and exit with code 0; the filters behave as intended (tested: `git push --force` and `rm -rf` trigger intention, `git status` does not; `npm test` and `git push` trigger learn, `ls` does not, an immediate second call is throttled; a failure triggers rebound).
-- Choices verified in the docs, not assumed: `prompt` hooks are available on the Stop event, which enables self-critique by a real LLM judgment (not a blind reminder). `agent` hooks there are marked experimental and discouraged in production, so Cortex keeps `prompt` (real, stable, cheaper judgment) and documents `agent` as an advanced variant. On Stop, the technical channel is the decision (continue or let conclude), not context injection: see `docs/DOCTRINE.md` for the honest caveat this imposes on the self-critique pillar.
+- A zero-dependency test suite (`node --test`) covers every hook: the manifests parse, each hook emits the right JSON and exits 0, and the filters behave (e.g. `git push --force`, `rm -rf`, `dd of=/dev/...`, a remote-branch delete trigger intention; `git status` and a multiline `DELETE ... WHERE` do not; `npm test` triggers learn and an immediate second call is throttled; frame stays silent on a bare "thanks"; orient switches to its recovery question on `compact`). CI runs it on Node 18-24.
+- Choices verified against the docs, not assumed: every wired event was checked to actually accept its channel (`additionalContext` for orient/frame/intention/learn/rebound/delegation; a `prompt` decision for self-critique). PreCompact was checked too -- it does *not* accept `additionalContext`, which is exactly why "consolidate" is left unwired. `prompt` hooks are available on Stop (real LLM judgment, not a blind reminder); `agent` hooks are marked experimental, so Cortex keeps `prompt`. Note: Stop *does* accept `additionalContext` -- an earlier doc claim to the contrary is corrected in `docs/DOCTRINE.md`, and the `prompt` choice stands because judging "is this at the level?" needs an LLM.
 
 ## Status
 
-The minimal prototype (3 moments) was extended to 5, the full loop of the action cycle, keeping each addition strongly filtered. Cortex aims to replace the pile of fixed skills and instructions with a handful of reflex hooks, but it is tested in real conditions before anything is removed. Designing is not migrating; nothing is deleted blindly.
+The prototype (3 moments) grew to the full action loop (5), and now to the full session (7: orient and delegation added), each addition kept strongly filtered and each channel verified against the docs. Cortex aims to be a single, autonomous plugin complete enough to replace the pile of fixed skills and instructions with a handful of reflex hooks -- but it is tested in real conditions before anything is removed. Designing is not migrating; nothing is deleted blindly.

@@ -29,6 +29,7 @@ const msg = [
   `[Cortex - Rebound from failure -> ${label}]`,
   "That just failed. Before retrying:",
   "  - What is the real cause, not the symptom? What does this failure reveal that you did not see?",
+  "  - Is the answer already written down where you have not looked yet - the full error, the official docs, the source? Reach the ground truth before guessing again.",
   "  - What is your next hypothesis, a different one, rather than rerunning the same thing and hoping for a different result?",
 ].join("\n");
 
