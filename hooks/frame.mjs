@@ -11,6 +11,8 @@
 // pure pleasantry (a bare "thanks" / "ok"), so it does not flood non-tasks.
 // (REASONING-PIPELINE.md section 4, docs/DOCTRINE.md.)
 
+import { log } from "./cortex-store.mjs";
+
 let raw = "";
 try {
   for await (const chunk of process.stdin) raw += chunk;
@@ -18,12 +20,13 @@ try {
   raw = "";
 }
 
-let prompt = "";
+let input = {};
 try {
-  prompt = String((JSON.parse(raw) || {}).prompt || "");
+  input = JSON.parse(raw) || {};
 } catch {
-  prompt = "";
+  input = {};
 }
+const prompt = String(input.prompt || "");
 
 // Step aside for a pure pleasantry / acknowledgement: framing it is noise, not thought.
 // Conservative on purpose -- it only skips when the WHOLE prompt is an obvious non-task,
@@ -42,6 +45,8 @@ const CONTEXT = [
   "  - What level are you aiming for: the minimum that works, or the remarkable? The safe minimum is the floor, never the ceiling.",
   "Build your own method from these answers - that is the work, not waiting to be told how.",
 ].join("\n");
+
+log(input, { event: "UserPromptSubmit", hook: "frame", action: "emit", note: "Frame before acting", detail: prompt });
 
 process.stdout.write(
   JSON.stringify({

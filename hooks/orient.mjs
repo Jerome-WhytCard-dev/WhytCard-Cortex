@@ -10,6 +10,13 @@
 // re-establish), because PreCompact itself cannot inject context -- so the "memory across
 // forgetting" concern is carried here, through a channel that actually works.
 // (REASONING-PIPELINE.md, docs/DOCTRINE.md.)
+//
+// This is also where the persistent side of Cortex surfaces: it confirms the plugin is active
+// (visible feedback), re-reads the project's `.cortex/memory.md` and injects it so hard-won
+// understanding is not relearned each session, and logs the activation. All of it is
+// best-effort via cortex-store and silenced by CORTEX_LOG=0 -- the question always fires.
+
+import { projectRoot, ensureDir, readMemory, log } from "./cortex-store.mjs";
 
 let raw = "";
 try {
@@ -45,7 +52,39 @@ const recover = [
   "  - Are you still on the path to the original goal, or has the thread quietly drifted?",
 ].join("\n");
 
-const context = source === "compact" ? recover : orient;
+const question = source === "compact" ? recover : orient;
+
+// Confirm activation, and load the durable project memory so it resurfaces this session.
+// Best-effort: if the store is disabled or unreadable, we just emit the question alone.
+const root = projectRoot(input);
+ensureDir(root);
+const mem = readMemory(root);
+const noteCount = mem ? mem.notes : 0;
+
+const banner =
+  noteCount > 0
+    ? `[Cortex active] ${noteCount} memory note(s) loaded from .cortex/memory.md.`
+    : "[Cortex active] No durable project memory yet (.cortex/memory.md); it grows as results teach something reusable.";
+
+const parts = [banner, "", question];
+if (mem && noteCount > 0 && mem.text) {
+  parts.push(
+    "",
+    "--- Project memory (.cortex/memory.md), carried from earlier sessions ---",
+    mem.text,
+    mem.truncated ? "[...truncated; open .cortex/memory.md for the rest]" : null
+  );
+}
+
+const context = parts.filter((p) => p !== null).join("\n").trimEnd();
+
+log(input, {
+  event: "SessionStart",
+  hook: "orient",
+  action: source === "compact" ? "recover" : "orient",
+  memory_notes: noteCount,
+  detail: source,
+});
 
 process.stdout.write(
   JSON.stringify({

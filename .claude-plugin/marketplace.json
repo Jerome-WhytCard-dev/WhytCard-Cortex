@@ -9,7 +9,7 @@
       "name": "whytcard-cortex",
       "source": "./",
       "description": "A reasoning pipeline as reflex hooks: the right question asked at the right moments of the agent cycle, not orders.",
-      "version": "0.2.0"
+      "version": "0.3.0"
     }
   ]
 }

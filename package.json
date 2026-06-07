@@ -1,6 +1,6 @@
 {
   "name": "whytcard-cortex",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "A reasoning pipeline as reflex hooks for Claude Code. Questions, not orders.",
   "type": "module",

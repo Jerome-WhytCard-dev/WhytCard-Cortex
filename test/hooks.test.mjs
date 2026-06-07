@@ -8,7 +8,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -19,10 +20,14 @@ let seq = 0;
 const newSession = () => `test-${process.pid}-${Date.now()}-${seq++}`;
 
 // Run a hook with the given stdin; return { stdout, code, context }.
-function run(name, input) {
+// File I/O (the .cortex/ store) is OFF by default here (CORTEX_LOG=0) so the behaviour tests
+// stay pure and never write into the working tree. The persistence tests below re-enable it
+// against a throwaway temp project via opts.env.
+function run(name, input, opts = {}) {
   const res = spawnSync(process.execPath, [hook(name)], {
     input: typeof input === "string" ? input : JSON.stringify(input ?? {}),
     encoding: "utf8",
+    env: { ...process.env, CORTEX_LOG: "0", ...(opts.env || {}) },
   });
   let context = null;
   const out = (res.stdout || "").trim();
@@ -171,4 +176,86 @@ test("hooks.json wires every referenced hook file and only those", () => {
     const file = ref.replace("hooks/", "");
     assert.doesNotThrow(() => readFileSync(hook(file), "utf8"), `${file} referenced but missing`);
   }
+});
+
+// ---------------------------------------------------------------- the .cortex/ store
+// A fresh temp project per test, with the store ENABLED and pointed at it via CLAUDE_PROJECT_DIR.
+function withProject(fn) {
+  const proj = mkdtempSync(join(tmpdir(), "cortex-test-"));
+  const on = (name, input) => run(name, input, { env: { CORTEX_LOG: "1", CLAUDE_PROJECT_DIR: proj } });
+  try {
+    return fn(proj, on);
+  } finally {
+    rmSync(proj, { recursive: true, force: true });
+  }
+}
+const logLines = (proj) => {
+  const f = join(proj, ".cortex", "log.jsonl");
+  return existsSync(f) ? readFileSync(f, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+};
+
+test("store: a speaking hook seeds .cortex/ and appends exactly one log line", () => {
+  withProject((proj, on) => {
+    const r = on("frame.mjs", { prompt: "refactor the auth module", session_id: "s1" });
+    assert.equal(r.code, 0);
+    assert.ok(existsSync(join(proj, ".cortex", "memory.md")), "memory.md seeded");
+    assert.ok(existsSync(join(proj, ".cortex", ".gitignore")), ".gitignore seeded");
+    const entries = logLines(proj);
+    assert.equal(entries.length, 1, "one line per speaking hook");
+    assert.equal(entries[0].hook, "frame");
+    assert.equal(entries[0].action, "emit");
+    assert.equal(entries[0].detail, "refactor the auth module");
+    assert.ok(entries[0].ts && entries[0].event === "UserPromptSubmit");
+  });
+});
+
+test("store: a silent hook writes nothing", () => {
+  withProject((proj, on) => {
+    on("frame.mjs", { prompt: "merci" });
+    assert.equal(logLines(proj).length, 0, "no line when the hook stays silent");
+  });
+});
+
+test("store: the seeded .gitignore keeps memory.md but ignores the log", () => {
+  withProject((proj, on) => {
+    on("frame.mjs", { prompt: "do real work" });
+    const gi = readFileSync(join(proj, ".cortex", ".gitignore"), "utf8");
+    // Look at the rules only (drop comments and blanks): log ignored, memory kept.
+    const rules = gi.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("#"));
+    assert.ok(rules.includes("log.jsonl"), "log.jsonl is ignored");
+    assert.ok(!rules.some((r) => r.includes("memory.md")), "memory.md is not ignored");
+  });
+});
+
+test("store: CORTEX_LOG=0 disables all file I/O", () => {
+  const proj = mkdtempSync(join(tmpdir(), "cortex-test-"));
+  try {
+    run("frame.mjs", { prompt: "a real task" }, { env: { CORTEX_LOG: "0", CLAUDE_PROJECT_DIR: proj } });
+    assert.ok(!existsSync(join(proj, ".cortex")), "no .cortex/ created when disabled");
+  } finally {
+    rmSync(proj, { recursive: true, force: true });
+  }
+});
+
+test("orient: confirms activation and re-injects accumulated memory", () => {
+  withProject((proj, on) => {
+    mkdirSync(join(proj, ".cortex"), { recursive: true });
+    writeFileSync(join(proj, ".cortex", "memory.md"), "# Cortex memory\n\n- The build requires Node 24.\n");
+    const r = on("orient.mjs", { source: "startup", session_id: "s2" });
+    assert.match(r.context, /\[Cortex active\]/);
+    assert.match(r.context, /1 memory note/);
+    assert.match(r.context, /The build requires Node 24/);
+    assert.match(r.context, /Orient before working/);
+    const entries = logLines(proj);
+    assert.equal(entries[0].hook, "orient");
+    assert.equal(entries[0].memory_notes, 1);
+  });
+});
+
+test("orient: reports no memory when none has accumulated yet", () => {
+  withProject((proj, on) => {
+    const r = on("orient.mjs", { source: "startup" });
+    assert.match(r.context, /\[Cortex active\]/);
+    assert.match(r.context, /No durable project memory yet/);
+  });
 });
