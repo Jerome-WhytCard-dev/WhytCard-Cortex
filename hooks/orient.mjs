@@ -16,7 +16,7 @@
 // understanding is not relearned each session, and logs the activation. All of it is
 // best-effort via cortex-store and silenced by CORTEX_LOG=0 -- the question always fires.
 
-import { projectRoot, ensureDir, readMemory, log } from "./cortex-store.mjs";
+import { projectRoot, ensureDir, readMemory, guideContext, log } from "./cortex-store.mjs";
 
 let raw = "";
 try {
@@ -75,6 +75,11 @@ if (mem && noteCount > 0 && mem.text) {
     mem.truncated ? "[...truncated; open .cortex/memory.md for the rest]" : null
   );
 }
+
+// Load the inherited guide + working language, so the session starts already speaking the user's
+// language and following their preferences. Best-effort, empty when nothing is set.
+const gctx = guideContext(root);
+if (gctx) parts.push("", gctx);
 
 const context = parts.filter((p) => p !== null).join("\n").trimEnd();
 

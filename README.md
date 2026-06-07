@@ -35,6 +35,36 @@ This stays true to the doctrine -- the hook only *asks*, the model provides the 
 
 **Disabling the store.** Set `CORTEX_LOG=0` (or `off`/`false`/`no`) to turn off all file I/O and return Cortex to a pure stateless reflex plugin.
 
+## The living guide and the command surface (v0.4)
+
+The seven reflexes are *universal* -- the same questions for everyone. v0.4 adds a second plane: a **personal guide** Cortex learns from you, by consent, and a small surface of commands to steer it. This is the part that makes Cortex *your* reasoning, inherited, rather than a generic default.
+
+Two artefacts join the store:
+
+| File | What it is |
+|---|---|
+| `guide.md` | Your **inherited reasoning**: durable preferences about *how* the agent should work here ("always run the tests before pushing", "answer concisely"). Distinct from `memory.md`, which holds verified *facts* about the project. **Frame injects the guide on every substantive prompt and Orient at every session start**, capped so it can never flood -- so the agent actually follows your way. |
+| `config.json` | Cortex settings for the project: the **working language** (Cortex tells the agent to reason and reply in it -- no need to repeat yourself each session) and the **lock** state. |
+
+**How "a hook evolves" really works.** Claude Code cannot register or delete real hooks mid-session (verified against the official docs: no hook-management API, no guaranteed reload). So "add a hook" is reframed as **add a rule to the living guide** that the fixed reflexes already inject -- immediate, reload-free, safe, and the same lived effect: the pipeline grows and shrinks as you steer it.
+
+**The capture loop (consent, never imposition).** When you state a durable preference about how the agent should work, Frame's nudge invites the agent to *offer* to save it -- it asks, it does not decide for you. Say yes and it becomes a guide line; say "forget that" and it is dropped. Lock the guide and Cortex stops proposing and just follows.
+
+**The `/whytcard-cortex` commands** (run them by their namespaced names, e.g. `/whytcard-cortex:show`):
+
+| Command | What it does |
+|---|---|
+| `init` | One-time setup: pick the working language and scope, seed the store. Run it once after enabling the plugin. |
+| `show` | The whole pipeline in one view: language, lock state, the seven reflexes, and your numbered guide. |
+| `review` | Audits the guide -- overlaps, contradictions, vague or stale rules, gaps -- and proposes sharper edits toward your "perfect" pipeline (it suggests, you approve). |
+| `add` / `forget` | Edit the guide directly: add a rule, or drop one by its text or its number. |
+| `lock` / `unlock` | Freeze the guide (follow it, stop learning) or open it again. |
+| `goal` | A self-correction reflex: name the target stage, derive the path to it backward, and pressure-test whether the plan is actually well thought out. |
+
+All commands are backed by `cortex.mjs`, a zero-dependency Node CLI you can also run by hand (`node cortex.mjs show`). Everything honours `CORTEX_LOG=0`: disable the store and the guide layer disappears with it, leaving the pure reflexes.
+
+> **Status: Phase 1 (the spine).** The guide is real, visible, steerable and lockable, and the capture nudge rides on Frame. Phase 2 sharpens the *automatic* "I noticed a preference -- save it?" detection and the positive/negative read of each exchange; Phase 3 treats the guide as full inherited reasoning (conflict resolution, per-context scope, a cross-project user-level guide). Designing is not migrating: the foundation ships and is tested before the smarter layers are added.
+
 ## Install
 
 The repo is its own single-plugin marketplace (`.claude-plugin/marketplace.json`, `source: "./"`). In a Claude Code session, via the `/plugin` commands:
@@ -46,7 +76,7 @@ The repo is its own single-plugin marketplace (`.claude-plugin/marketplace.json`
 
 From a local clone rather than GitHub, replace step 1 with `/plugin marketplace add <path-to-the-cloned-folder>`: the command accepts both an `owner/repo` and a local folder path.
 
-The hooks load automatically on enable. No dependencies, the `.mjs` files are plain Node. Requirement: Node on the PATH (verified on Node v24).
+The hooks load automatically on enable. No dependencies, the `.mjs` files are plain Node. Requirement: Node on the PATH (verified on Node v24). Once enabled, run **`/whytcard-cortex:init`** once to choose your working language and activate the guide, then **`/whytcard-cortex:show`** any time to see the live pipeline.
 
 Rollback: `/plugin disable whytcard-cortex@whytcard-cortex`, then if needed `/plugin uninstall whytcard-cortex@whytcard-cortex` and `/plugin marketplace remove whytcard-cortex`.
 

@@ -11,7 +11,7 @@
 // pure pleasantry (a bare "thanks" / "ok"), so it does not flood non-tasks.
 // (REASONING-PIPELINE.md section 4, docs/DOCTRINE.md.)
 
-import { log } from "./cortex-store.mjs";
+import { log, projectRoot, guideContext } from "./cortex-store.mjs";
 
 let raw = "";
 try {
@@ -48,11 +48,17 @@ const CONTEXT = [
 
 log(input, { event: "UserPromptSubmit", hook: "frame", action: "emit", note: "Frame before acting", detail: prompt });
 
+// Append the inherited guide (the user's durable preferences) + working language, and the watch
+// nudge that lets new preferences be captured. Best-effort: empty string when the store is off or
+// nothing has been set yet, so the pure framing question is always the floor.
+const guide = guideContext(projectRoot(input), { watch: true });
+const additionalContext = guide ? `${CONTEXT}\n\n${guide}` : CONTEXT;
+
 process.stdout.write(
   JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "UserPromptSubmit",
-      additionalContext: CONTEXT,
+      additionalContext,
     },
   })
 );
