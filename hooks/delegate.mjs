@@ -11,13 +11,23 @@
 // offers the cross-check question as the parent picks the thread back up.
 // (docs/DOCTRINE.md.)
 
+import { log } from "./cortex-store.mjs";
+
 let raw = "";
 try {
   for await (const chunk of process.stdin) raw += chunk;
 } catch {
   // the question does not depend on the payload
 }
-void raw;
+
+// The question reads nothing from the payload, but we parse it (best-effort) so the log line
+// can carry the session id and resolve the project root.
+let input = {};
+try {
+  input = JSON.parse(raw) || {};
+} catch {
+  input = {};
+}
 
 const msg = [
   "[Cortex - Delegation, on return]",
@@ -26,6 +36,8 @@ const msg = [
   "  - Does what it returned actually answer what you delegated, or only part of it?",
   "  - What do you do with it now - integrate it, verify it, or send it back sharper?",
 ].join("\n");
+
+log(input, { event: "SubagentStop", hook: "delegate", action: "emit", note: "Delegation, on return" });
 
 process.stdout.write(
   JSON.stringify({

@@ -18,6 +18,23 @@ Questions, not orders. See `docs/DOCTRINE.md` for the rationale, `REASONING-PIPE
 
 Four of these seven moments almost never speak (orient only at a session boundary; intention, learn, rebound are strongly filtered). Zero skills: that is the whole point. Cortex is reflex hooks only -- it never tells the agent *how* to do a thing, it pushes the agent to find out (research, the right tool, the docs) and build its own method.
 
+## Project memory and log (`.cortex/`)
+
+Cortex is a reflex pipeline, but it also leaves a trace and remembers. On first use it creates a `.cortex/` folder at the project root (resolved from `CLAUDE_PROJECT_DIR`, falling back to the hook's `cwd`):
+
+| File | What it is | Written by |
+|---|---|---|
+| `log.jsonl` | One structured line each time a hook actually *speaks* (timestamp, event, hook, short detail). Your visible feedback: open it to see exactly what reaction Cortex triggered, and when. | every hook, on emit |
+| `memory.md` | Durable, project-specific understanding -- facts verified, decisions made, traps to avoid. **Re-injected at every session start** by Orient, so hard-won knowledge is not relearned. The agent curates it; **Learn** asks it to add a line whenever a result teaches something reusable. | the agent (Learn invites it) |
+| `.gitignore` | The git policy for the folder, seeded once and **yours to edit per project**. Default: keep `memory.md` (shared, durable), ignore `log.jsonl` (local). | seeded once |
+| `README.md` | Explains the folder. | seeded once |
+
+This stays true to the doctrine -- the hook only *asks*, the model provides the content of `memory.md`. The store is **best-effort**: if the filesystem refuses, hooks behave exactly as before and still exit 0.
+
+**Seeing it is active.** At every session start, Orient prefixes its question with a banner: `[Cortex active] N memory note(s) loaded from .cortex/memory.md.` That is the confirmation the plugin is live and how much project memory it carries into the session.
+
+**Disabling the store.** Set `CORTEX_LOG=0` (or `off`/`false`/`no`) to turn off all file I/O and return Cortex to a pure stateless reflex plugin.
+
 ## Install
 
 The repo is its own single-plugin marketplace (`.claude-plugin/marketplace.json`, `source: "./"`). In a Claude Code session, via the `/plugin` commands:
@@ -43,7 +60,7 @@ The hooks ship with a test suite that runs every hook as a real process and asse
 node --test        # or: npm test
 ```
 
-It covers emit/silence/throttle/filter behaviour for all seven hooks, robustness to malformed input, and that every manifest parses. CI (`.github/workflows/ci.yml`) runs it on Node 18-24.
+It covers emit/silence/throttle/filter behaviour for all seven hooks, robustness to malformed input, that every manifest parses, and the `.cortex/` store (seeding, log-on-speak, the git policy, the `CORTEX_LOG=0` opt-out, and memory re-injection at session start). CI (`.github/workflows/ci.yml`) runs it on Node 18-24.
 
 Quick one-off check of a single hook (example `intent.mjs`):
 

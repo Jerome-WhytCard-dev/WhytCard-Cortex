@@ -2,6 +2,27 @@
 
 All notable changes to WhytCard-Cortex. The format follows Keep a Changelog, the versioning follows SemVer.
 
+## [0.3.0] - 2026-06-07
+
+The persistent pass: Cortex stops being purely stateless and gains a project-scoped working memory, plus a visible signal that it is active. The reflexes are unchanged in spirit (questions, not orders); they now also leave a trace and re-surface what was learned.
+
+### Added
+- **Project store `.cortex/`** (`hooks/cortex-store.mjs`), best-effort and zero-dependency, written into the project root (resolved from `CLAUDE_PROJECT_DIR`, else the hook payload's `cwd`):
+  - **`log.jsonl`** -- one structured line each time a hook actually *speaks* (timestamp, event, hook, a short detail). This is the visible feedback: open it to see exactly what reaction Cortex triggered, and when.
+  - **`memory.md`** -- durable, project-specific understanding. The agent curates it (the Learn reflex now asks it to add a line whenever a result teaches something reusable); Orient re-reads and re-injects it at every session start, so hard-won knowledge is not relearned each time. Faithful to the doctrine: the hook only asks, the model provides the content.
+  - **`.gitignore`** seeded once per project (memory kept, log ignored by default) so each project chooses its own git policy, and a **`README.md`** explaining the folder.
+- **Activation banner**: Orient now prefixes its question with `[Cortex active] N memory note(s) loaded ...`, a clear confirmation that the plugin is live and how much project memory it carries into the session.
+- **`CORTEX_LOG=0`** (or `off`/`false`/`no`) opts out of all file I/O, returning Cortex to a pure stateless reflex plugin.
+- Tests for the store: seeding, one-line-per-speaking-hook logging, silence-writes-nothing, the git policy, the disable switch, and the memory re-injection at session start (24 tests total).
+
+### Changed
+- Every speaking hook now logs its firing (still only when it actually injects a question -- silence stays silent and unlogged).
+- The Learn question gains a final line pointing the reusable understanding to `.cortex/memory.md`.
+- Bumped to 0.3.0 across `plugin.json`, `marketplace.json` and `package.json`.
+
+### Notes
+- The store is **best-effort and never blocks**: if the filesystem refuses or `CORTEX_LOG=0`, hooks behave exactly as in 0.2.0 and still exit 0. The pure-reflex behaviour is preserved as the floor.
+
 ## [0.2.0] - 2026-06-06
 
 The autonomous pass: the pipeline now spans the full session, pushes a real research / tool-use / anticipation reflex, and is self-verified by a test suite. The goal is a single plugin complete enough to stand in for a pile of skills and instructions.

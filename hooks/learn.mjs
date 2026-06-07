@@ -13,6 +13,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
+import { log } from "./cortex-store.mjs";
 
 let raw = "";
 try {
@@ -75,7 +76,10 @@ const msg = [
   "  - What does it actually teach you? Does it confirm or contradict what you believed?",
   "  - Does your plan still hold, or does this result change it? If it contradicts an assumption, which one, and what do you fix now?",
   "  - Is there a reusable understanding here - a method worth carrying forward - or is it a one-off?",
+  "  - If it is reusable, write it as one short, true line in .cortex/memory.md so the next session starts from it instead of relearning it; if it is a one-off, let it go.",
 ].join("\n");
+
+log(input, { event: "PostToolUse", hook: "learn", action: "emit", note: "What does this teach you?", detail: cmd });
 
 process.stdout.write(
   JSON.stringify({

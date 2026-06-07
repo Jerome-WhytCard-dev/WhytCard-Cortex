@@ -11,6 +11,8 @@
 // made through another tool is caught instead by the "Frame" anticipation question, by design
 // (a hook on every tool call would flood). (REASONING-PIPELINE.md section 4, docs/DOCTRINE.md.)
 
+import { log } from "./cortex-store.mjs";
+
 let raw = "";
 try {
   for await (const chunk of process.stdin) raw += chunk;
@@ -59,6 +61,8 @@ const msg = [
   "  - Is it reversible? If you are wrong here, can you go back, and how?",
   "  - Do you have a safety net (a backup, a branch, a confirmation) if the result is not the one you expect?",
 ].join("\n");
+
+log(input, { event: "PreToolUse", hook: "intent", action: "emit", note: "Intention before a grave gesture", detail: cmd });
 
 process.stdout.write(
   JSON.stringify({
