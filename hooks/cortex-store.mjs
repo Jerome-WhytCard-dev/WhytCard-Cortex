@@ -81,6 +81,7 @@ export function ensureDir(root) {
   }
 }
 
+// Write `content` to `file` only if it does not exist yet. Best-effort; never throws.
 function seedOnce(file, content) {
   try {
     if (!existsSync(file)) writeFileSync(file, content);

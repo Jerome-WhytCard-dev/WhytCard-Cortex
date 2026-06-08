@@ -25,6 +25,7 @@ const root = projectRoot({});
 const [cmd, ...rest] = process.argv.slice(2);
 const argstr = rest.filter((a) => !a.startsWith("--")).join(" ").trim();
 
+// Read a `--name=value` flag from the args, or `def` when it is absent.
 function flag(name, def = "") {
   const hit = rest.find((a) => a.startsWith(`--${name}=`));
   return hit ? hit.slice(name.length + 3) : def;
@@ -46,6 +47,7 @@ if (DISABLED) {
   process.exit(0);
 }
 
+// Render the human-readable pipeline snapshot for `show`: language, lock, reflexes, guide rules.
 function showText() {
   const cfg = readConfig(root);
   const guide = readGuide(root);

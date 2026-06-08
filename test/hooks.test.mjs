@@ -319,6 +319,9 @@ test("cli: status emits valid JSON with config, guide and the seven reflexes", (
     const data = JSON.parse(runCli(["status"], proj).out);
     assert.equal(data.guide.count, 1);
     assert.equal(data.config.locked, false);
+    // Exactly 7 conceptual reflexes (the REFLEXES list in cortex.mjs): the 6 command-hook .mjs
+    // files plus Self-critique, which is the inline `prompt` hook in hooks.json (no .mjs). That
+    // is why the "wires every referenced hook file" test above counts >= 6, and this one == 7.
     assert.ok(Array.isArray(data.reflexes) && data.reflexes.length === 7);
   });
 });

@@ -61,7 +61,7 @@ Two artefacts join the store:
 | `lock` / `unlock` | Freeze the guide (follow it, stop learning) or open it again. |
 | `goal` | A self-correction reflex: name the target stage, derive the path to it backward, and pressure-test whether the plan is actually well thought out. |
 
-All commands are backed by `cortex.mjs`, a zero-dependency Node CLI you can also run by hand (`node cortex.mjs show`). Everything honours `CORTEX_LOG=0`: disable the store and the guide layer disappears with it, leaving the pure reflexes.
+The state commands (`init`, `show`, `add`, `forget`, `lock`, `unlock`) are backed by `cortex.mjs`, a zero-dependency Node CLI you can also run by hand (`node cortex.mjs show`). `review` and `goal` are reasoning skills rather than CLI subcommands -- `review` reads `cortex.mjs status` for context and then the agent audits it, and `goal` is a pure backward-reasoning prompt. Everything honours `CORTEX_LOG=0`: disable the store and the guide layer disappears with it, leaving the pure reflexes.
 
 > **Status: Phase 1 (the spine).** The guide is real, visible, steerable and lockable, and the capture nudge rides on Frame. Phase 2 sharpens the *automatic* "I noticed a preference -- save it?" detection and the positive/negative read of each exchange; Phase 3 treats the guide as full inherited reasoning (conflict resolution, per-context scope, a cross-project user-level guide). Designing is not migrating: the foundation ships and is tested before the smarter layers are added.
 

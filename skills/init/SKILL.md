@@ -2,6 +2,7 @@
 name: init
 description: Set up Cortex for this project -- pick the working language and scope, then seed the store. Run once after enabling the plugin.
 disable-model-invocation: true
+allowed-tools: Bash(node:*), AskUserQuestion
 ---
 
 # Cortex - initialize
