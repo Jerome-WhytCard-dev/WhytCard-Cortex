@@ -49,8 +49,13 @@ const SEED_README = [
   "",
   "Working memory for the WhytCard-Cortex reasoning hooks.",
   "",
-  "- **`memory.md`** -- durable, project-specific understanding. The agent curates it; Orient",
-  "  re-injects it at every session start so hard-won knowledge is not relearned each time.",
+  "- **`guide.md`** -- your *inherited reasoning*: durable preferences about HOW the agent should",
+  "  work here, captured with your consent. Injected at the start of every prompt and session so",
+  "  the agent follows your way. Steer it with the `/whytcard-cortex` commands (add / forget / lock).",
+  "- **`memory.md`** -- durable, project-specific *facts* the agent verified (decisions, traps).",
+  "  Orient re-injects it at every session start so hard-won knowledge is not relearned each time.",
+  "- **`config.json`** -- Cortex settings for this project (working language, lock state, scope),",
+  "  set once by the `init` command.",
   "- **`log.jsonl`** -- one line each time a Cortex hook actually speaks (the reaction it",
   "  triggered, with a timestamp). Your window into what the plugin is doing. Local by default.",
   "- **`.gitignore`** -- the git policy for this folder. Edit it per project.",
@@ -68,6 +73,7 @@ export function ensureDir(root) {
     mkdirSync(dir, { recursive: true });
     seedOnce(join(dir, ".gitignore"), SEED_GITIGNORE);
     seedOnce(join(dir, "memory.md"), SEED_MEMORY);
+    seedOnce(join(dir, "guide.md"), SEED_GUIDE);
     seedOnce(join(dir, "README.md"), SEED_README);
     return dir;
   } catch {
@@ -75,6 +81,7 @@ export function ensureDir(root) {
   }
 }
 
+// Write `content` to `file` only if it does not exist yet. Best-effort; never throws.
 function seedOnce(file, content) {
   try {
     if (!existsSync(file)) writeFileSync(file, content);
@@ -128,6 +135,159 @@ export function readMemory(root) {
     return { text: text.trim(), notes, truncated };
   } catch {
     return null;
+  }
+}
+
+// ----------------------------------------------------------------------------- config + guide
+// The persistent side grows a second artefact beside memory.md: a *guide* -- the user's durable
+// preferences about HOW the agent should work here ("inherited reasoning"), captured by consent
+// and injected at the boundaries (Frame, Orient) so it actually steers behaviour. Plus a small
+// config (working language, lock state) set once by the `init` command. Both are best-effort and
+// honour CORTEX_LOG=0 exactly like the log: when the store is off, they all no-op.
+//
+// guide.md (HOW to work, the user's preferences) is kept distinct from memory.md (WHAT is true
+// about the project, verified facts): one steers behaviour, the other recalls knowledge.
+
+const CONFIG_DEFAULTS = { version: 1, language: "", locked: false, scope: "project" };
+const GUIDE_CAP = 2000;
+
+const SEED_GUIDE = [
+  "# Cortex guide",
+  "",
+  "> Your inherited reasoning: durable preferences about HOW the agent should work here,",
+  "> captured with your consent. Cortex injects these at the start of every prompt and session,",
+  "> so the agent follows your way rather than a generic default. One short, true, actionable",
+  "> line per rule. Add or drop them with the /whytcard-cortex commands, or freeze with lock.",
+  "",
+].join("\n");
+
+// Read the project config (.cortex/config.json), merged over the defaults. Never throws.
+export function readConfig(root) {
+  if (DISABLED) return { ...CONFIG_DEFAULTS };
+  try {
+    const file = join(root, ".cortex", "config.json");
+    if (!existsSync(file)) return { ...CONFIG_DEFAULTS };
+    return { ...CONFIG_DEFAULTS, ...(JSON.parse(readFileSync(file, "utf8")) || {}) };
+  } catch {
+    return { ...CONFIG_DEFAULTS };
+  }
+}
+
+// Merge `patch` into the config and persist it. Returns the new config, or null if I/O is off.
+export function writeConfig(root, patch) {
+  if (DISABLED) return null;
+  try {
+    const dir = ensureDir(root);
+    if (!dir) return null;
+    const next = { ...readConfig(root), ...(patch || {}) };
+    writeFileSync(join(dir, "config.json"), JSON.stringify(next, null, 2) + "\n");
+    return next;
+  } catch {
+    return null;
+  }
+}
+
+// Read the guide (.cortex/guide.md). Returns { text, rules[], count } or null. A "rule" is any
+// "- ..." bullet line; the heading and the seeded quote block do not count.
+export function readGuide(root) {
+  if (DISABLED) return null;
+  try {
+    const file = join(root, ".cortex", "guide.md");
+    if (!existsSync(file)) return null;
+    const text = readFileSync(file, "utf8");
+    const rules = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("- "))
+      .map((l) => l.slice(2).trim())
+      .filter(Boolean);
+    return { text, rules, count: rules.length };
+  } catch {
+    return null;
+  }
+}
+
+// Append one rule to the guide, de-duplicated (case-insensitive). Returns the new guide or null.
+export function appendRule(root, rule) {
+  if (DISABLED) return null;
+  const clean = String(rule || "").replace(/\s+/g, " ").trim();
+  if (!clean) return null;
+  try {
+    const dir = ensureDir(root);
+    if (!dir) return null;
+    const cur = readGuide(root);
+    if (cur && cur.rules.some((r) => r.toLowerCase() === clean.toLowerCase())) return cur;
+    appendFileSync(join(dir, "guide.md"), `- ${clean}\n`);
+    return readGuide(root);
+  } catch {
+    return null;
+  }
+}
+
+// Remove a rule by 1-based index (a digits-only `match`) or by case-insensitive substring.
+// Removes at most one (the first hit). Returns { removed, guide } or null.
+export function removeRule(root, match) {
+  if (DISABLED) return null;
+  const m = String(match || "").trim();
+  if (!m) return null;
+  try {
+    const file = join(root, ".cortex", "guide.md");
+    if (!existsSync(file)) return null;
+    const asIndex = /^\d+$/.test(m) ? parseInt(m, 10) : null;
+    let idx = 0;
+    let removed = null;
+    const kept = readFileSync(file, "utf8")
+      .split(/\r?\n/)
+      .filter((line) => {
+        const t = line.trim();
+        if (!t.startsWith("- ")) return true;
+        idx++;
+        const body = t.slice(2).trim();
+        const hit = asIndex ? idx === asIndex : body.toLowerCase().includes(m.toLowerCase());
+        if (hit && removed === null) {
+          removed = body;
+          return false;
+        }
+        return true;
+      });
+    if (removed !== null) writeFileSync(file, kept.join("\n"));
+    return { removed, guide: readGuide(root) };
+  } catch {
+    return null;
+  }
+}
+
+// Build the context block injected by Frame and Orient: the working-language line (if set) and
+// the guide rules (capped). With { watch: true } it also adds the capture nudge (Frame only,
+// and only when not locked). Returns "" when there is nothing to say or I/O is off. The
+// scaffolding stays in English like the other reflexes; the rules and the language line carry
+// the localisation and the actual steering.
+export function guideContext(root, opts = {}) {
+  if (DISABLED) return "";
+  try {
+    const cfg = readConfig(root);
+    const guide = readGuide(root);
+    const parts = [];
+    const lang = String(cfg.language || "").trim();
+    if (lang) parts.push(`[Cortex] Working language: ${lang} -- reason and reply in ${lang}.`);
+    if (guide && guide.count > 0) {
+      let body = guide.rules.map((r) => `  - ${r}`).join("\n");
+      if (body.length > GUIDE_CAP) body = body.slice(0, GUIDE_CAP) + "\n  - [...truncated; see .cortex/guide.md]";
+      parts.push(
+        `[Cortex - Your inherited guide (${guide.count} rule(s)${cfg.locked ? ", locked" : ""})]`,
+        "How the user wants you to work on this project, inherited across sessions. Follow it:",
+        body
+      );
+    }
+    if (opts.watch && !cfg.locked) {
+      parts.push(
+        "[Cortex - Watch for a durable preference]",
+        "If the user states a durable preference about how you should work (a standing always/never/prefer, or a correction of your behaviour) that is not already in the guide above, offer to save it to their guide -- ask, don't impose. If they retract one, drop it."
+      );
+    }
+    return parts.join("\n").trimEnd();
+  } catch {
+    return "";
   }
 }
 

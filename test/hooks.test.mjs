@@ -15,6 +15,16 @@ import { dirname, join } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const hook = (name) => join(root, "hooks", name);
+const cliPath = join(root, "cortex.mjs");
+
+// Run the cortex CLI against a given project, with the store enabled. Returns { out, code }.
+function runCli(args, proj) {
+  const res = spawnSync(process.execPath, [cliPath, ...args], {
+    encoding: "utf8",
+    env: { ...process.env, CORTEX_LOG: "1", CLAUDE_PROJECT_DIR: proj },
+  });
+  return { out: (res.stdout || "").trim(), code: res.status };
+}
 
 let seq = 0;
 const newSession = () => `test-${process.pid}-${Date.now()}-${seq++}`;
@@ -257,5 +267,103 @@ test("orient: reports no memory when none has accumulated yet", () => {
     const r = on("orient.mjs", { source: "startup" });
     assert.match(r.context, /\[Cortex active\]/);
     assert.match(r.context, /No durable project memory yet/);
+  });
+});
+
+// ------------------------------------------------------- the CLI (config + guide manipulation)
+test("cli: init sets the working language, show reflects it", () => {
+  withProject((proj) => {
+    runCli(["init", "--lang=Français", "--scope=project"], proj);
+    const r = runCli(["show"], proj);
+    assert.equal(r.code, 0);
+    assert.match(r.out, /Language : Français/);
+    assert.match(r.out, /open \(learning on\)/);
+    assert.match(r.out, /Reflexes/);
+  });
+});
+
+test("cli: add is de-duplicated, show numbers the rules, forget removes by text", () => {
+  withProject((proj) => {
+    runCli(["add", "use 2-space indent"], proj);
+    const dup = runCli(["add", "use 2-space indent"], proj);
+    assert.match(dup.out, /1 rule/, "duplicate add does not grow the guide");
+    assert.match(runCli(["show"], proj).out, /1\. use 2-space indent/);
+    assert.match(runCli(["forget", "2-space"], proj).out, /Removed:/);
+    assert.match(runCli(["show"], proj).out, /0 rule/);
+  });
+});
+
+test("cli: forget by index removes the right rule", () => {
+  withProject((proj) => {
+    runCli(["add", "rule one"], proj);
+    runCli(["add", "rule two"], proj);
+    runCli(["forget", "1"], proj);
+    const r = runCli(["show"], proj).out;
+    assert.doesNotMatch(r, /rule one/);
+    assert.match(r, /1\. rule two/);
+  });
+});
+
+test("cli: lock and unlock flip the status", () => {
+  withProject((proj) => {
+    runCli(["lock"], proj);
+    assert.match(runCli(["show"], proj).out, /LOCKED/);
+    runCli(["unlock"], proj);
+    assert.match(runCli(["show"], proj).out, /open \(learning on\)/);
+  });
+});
+
+test("cli: status emits valid JSON with config, guide and the seven reflexes", () => {
+  withProject((proj) => {
+    runCli(["add", "verify before asserting"], proj);
+    const data = JSON.parse(runCli(["status"], proj).out);
+    assert.equal(data.guide.count, 1);
+    assert.equal(data.config.locked, false);
+    // Exactly 7 conceptual reflexes (the REFLEXES list in cortex.mjs): the 6 command-hook .mjs
+    // files plus Self-critique, which is the inline `prompt` hook in hooks.json (no .mjs). That
+    // is why the "wires every referenced hook file" test above counts >= 6, and this one == 7.
+    assert.ok(Array.isArray(data.reflexes) && data.reflexes.length === 7);
+  });
+});
+
+// ------------------------------------------------------- the guide, injected by the reflexes
+test("frame: injects the inherited guide and working language when set", () => {
+  withProject((proj, on) => {
+    runCli(["init", "--lang=Français"], proj);
+    runCli(["add", "always run the tests before pushing"], proj);
+    const r = on("frame.mjs", { prompt: "ship the feature" });
+    assert.match(r.context, /Frame before acting/); // the base question is still the floor
+    assert.match(r.context, /Working language: Français/);
+    assert.match(r.context, /always run the tests before pushing/);
+    assert.match(r.context, /Watch for a durable preference/); // not locked -> capture nudge on
+  });
+});
+
+test("frame: when locked, the guide is still followed but the capture nudge is off", () => {
+  withProject((proj, on) => {
+    runCli(["add", "prefer composition over inheritance"], proj);
+    runCli(["lock"], proj);
+    const r = on("frame.mjs", { prompt: "design the module" });
+    assert.match(r.context, /prefer composition over inheritance/);
+    assert.match(r.context, /locked/);
+    assert.doesNotMatch(r.context, /Watch for a durable preference/);
+  });
+});
+
+test("frame: stays silent on a pleasantry even when a guide exists", () => {
+  withProject((proj, on) => {
+    runCli(["add", "be concise"], proj);
+    assert.equal(on("frame.mjs", { prompt: "merci" }).stdout, "");
+  });
+});
+
+test("orient: loads the guide and working language at session start", () => {
+  withProject((proj, on) => {
+    runCli(["init", "--lang=Español"], proj);
+    runCli(["add", "document public APIs"], proj);
+    const r = on("orient.mjs", { source: "startup" });
+    assert.match(r.context, /Orient before working/);
+    assert.match(r.context, /Working language: Español/);
+    assert.match(r.context, /document public APIs/);
   });
 });

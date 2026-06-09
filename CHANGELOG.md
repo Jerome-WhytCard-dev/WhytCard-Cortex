@@ -2,6 +2,33 @@
 
 All notable changes to WhytCard-Cortex. The format follows Keep a Changelog, the versioning follows SemVer.
 
+## [0.4.0] - 2026-06-07
+
+The living pass: Cortex stops being only a set of universal reflexes and gains a second plane -- a **personal, consent-based guide** it learns from you and a **command surface** to see and steer it. The reflexes still ask, never order; what is new is that, with your explicit "yes", a durable preference can become a standing line Cortex injects on every prompt -- *your* reasoning, inherited, not a generic recipe. This is Phase 1 (the spine): the guide is real, visible, steerable and lockable; the automatic "I noticed you stated a preference -- save it?" capture rides on the Frame nudge and will sharpen in Phase 2.
+
+### Added
+- **The living guide `.cortex/guide.md`** (`hooks/cortex-store.mjs`): durable preferences about HOW the agent should work here, kept distinct from `memory.md` (WHAT is true). **Frame injects it on every substantive prompt and Orient at every session start**, so it actually steers, capped so it can never flood. De-duplicated on add; removable by text or by index.
+- **Per-project config `.cortex/config.json`**: the **working language** (Cortex prefixes a "reason and reply in X" line, so the agent speaks your language without being told each time) and a **lock** state.
+- **A `/whytcard-cortex` command surface** (skills, auto-discovered), backed by a zero-dependency CLI (`cortex.mjs`):
+  - **`init`** -- one-time setup; asks the language + scope, seeds the store.
+  - **`show`** -- the whole pipeline in one view: language, lock, the seven reflexes, and your numbered guide.
+  - **`review`** -- audits the guide (overlaps, contradictions, vague or stale rules, gaps) and proposes sharper edits toward your "perfect" pipeline.
+  - **`add` / `forget`** -- edit the guide by hand (the controllable substrate under the automatic capture).
+  - **`lock` / `unlock`** -- freeze learning and just follow, or open it again.
+  - **`goal`** -- a self-correction reflex: name the target, derive the path backward, pressure-test whether it is well thought out.
+- **A capture nudge** woven into Frame (only when unlocked): if you state a durable preference, the agent offers -- never imposes -- to save it; if you retract one, it drops it.
+- Tests for all of the above (33 total): config + guide round-trips through the CLI, de-duplication, forget-by-text and forget-by-index, lock/unlock, `status` JSON, and the guide + language actually being injected by Frame and Orient (and the nudge going silent when locked).
+
+### Changed
+- **Frame** and **Orient** now append the guide + working language to their question (best-effort; empty and unchanged when nothing is set or `CORTEX_LOG=0`).
+- `.cortex/` seeds `guide.md` alongside `memory.md`; the folder README documents both, plus `config.json`.
+- Bumped to 0.4.0 across `plugin.json`, `marketplace.json` and `package.json`.
+
+### Notes
+- **No "real" hooks are registered at runtime.** Verified against the official docs: Claude Code has no API to add/remove hooks mid-session and no guaranteed reload, so "adding a hook" is reframed as **adding a rule to the living guide** that the fixed reflexes inject -- immediate, reload-free, and safe. Same lived effect ("the pipeline evolves"), without dynamically writing shell hooks.
+- **The doctrine tension is owned, not hidden.** Storing preferences is, literally, building a (personal, consented) set of instructions -- something "questions, not orders" pushes against. It stays faithful because Cortex only ever *asks* before saving, the content is *yours*, and `lock` plus `forget` keep you in control. See `docs/DOCTRINE.md`.
+- Still **best-effort and opt-out**: `CORTEX_LOG=0` returns Cortex to the pure stateless reflex plugin, guide and config included.
+
 ## [0.3.0] - 2026-06-07
 
 The persistent pass: Cortex stops being purely stateless and gains a project-scoped working memory, plus a visible signal that it is active. The reflexes are unchanged in spirit (questions, not orders); they now also leave a trace and re-surface what was learned.

@@ -12,3 +12,7 @@ node_modules/
 
 # Internal handoff document: do not publish (private config and paths)
 HANDOFF.md
+
+# Cortex working store: this plugin's OWN repo must never commit a runtime .cortex/
+# (it is seeded inside the *user's* project when the plugin runs, not here).
+.cortex/
