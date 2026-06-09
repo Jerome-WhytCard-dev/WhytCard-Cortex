@@ -1,5 +1,5 @@
 ---
-name: init
+name: cortex-init
 description: Set up Cortex for this project -- pick the working language and scope, then seed the store. Run once after enabling the plugin.
 disable-model-invocation: true
 allowed-tools: Bash(node:*), AskUserQuestion
@@ -16,6 +16,6 @@ Set Cortex up for this user and project. The plugin ships a CLI at `${CLAUDE_PLU
    `node "${CLAUDE_PLUGIN_ROOT}/cortex.mjs" init --lang="<language>" --scope=project`
 
    If `${CLAUDE_PLUGIN_ROOT}` is not set in your shell, find `cortex.mjs` at the root of the `whytcard-cortex` plugin directory and call it the same way.
-4. Confirm, in the chosen language, that Cortex is active and listening: from now on it follows their inherited guide, replies in their language, and will OFFER (never impose) to save durable preferences they express. Point them to the `show` command to see the pipeline, and `lock` to freeze it.
+4. Confirm, in the chosen language, that Cortex is active and listening: from now on it follows their inherited guide, replies in their language, and will OFFER (never impose) to save durable preferences they express. Point them to the `cortex-show` command to see the pipeline, and `cortex-lock` to freeze it.
 
 After this, never ask these setup questions again -- the config is persisted in `.cortex/config.json`.

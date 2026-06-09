@@ -1,5 +1,7 @@
 # WhytCard-Cortex
 
+[![CI](https://github.com/Jerome-WhytCard-dev/WhytCard-Cortex/actions/workflows/ci.yml/badge.svg)](https://github.com/Jerome-WhytCard-dev/WhytCard-Cortex/actions/workflows/ci.yml)
+
 A reasoning pipeline as hooks for Claude Code. At the boundaries of the agent cycle, Cortex asks the right question instead of dictating an answer. It replaces the pile of fixed skills and instructions with a few excellent questions, asked at the right moment, that make the agent think -- research, reach for the right available tool, go to the source -- and let it find the best path for itself.
 
 Questions, not orders. See `docs/DOCTRINE.md` for the rationale, `REASONING-PIPELINE.md` for the full analysis.
@@ -50,35 +52,49 @@ Two artefacts join the store:
 
 **The capture loop (consent, never imposition).** When you state a durable preference about how the agent should work, Frame's nudge invites the agent to *offer* to save it -- it asks, it does not decide for you. Say yes and it becomes a guide line; say "forget that" and it is dropped. Lock the guide and Cortex stops proposing and just follows.
 
-**The `/whytcard-cortex` commands** (run them by their namespaced names, e.g. `/whytcard-cortex:show`):
+**The Cortex commands** -- all prefixed `cortex-` so they are easy to find and never clash with Claude Code built-ins like `/init` or `/review`. Type the short form, e.g. `/cortex-show`; the fully namespaced form `/whytcard-cortex:cortex-show` also works:
 
 | Command | What it does |
 |---|---|
-| `init` | One-time setup: pick the working language and scope, seed the store. Run it once after enabling the plugin. |
-| `show` | The whole pipeline in one view: language, lock state, the seven reflexes, and your numbered guide. |
-| `review` | Audits the guide -- overlaps, contradictions, vague or stale rules, gaps -- and proposes sharper edits toward your "perfect" pipeline (it suggests, you approve). |
-| `add` / `forget` | Edit the guide directly: add a rule, or drop one by its text or its number. |
-| `lock` / `unlock` | Freeze the guide (follow it, stop learning) or open it again. |
-| `goal` | A self-correction reflex: name the target stage, derive the path to it backward, and pressure-test whether the plan is actually well thought out. |
+| `cortex-init` | One-time setup: pick the working language and scope, seed the store. Run it once after enabling the plugin. |
+| `cortex-show` | The whole pipeline in one view: language, lock state, the seven reflexes, and your numbered guide. |
+| `cortex-review` | Audits the guide -- overlaps, contradictions, vague or stale rules, gaps -- and proposes sharper edits toward your "perfect" pipeline (it suggests, you approve). |
+| `cortex-add` / `cortex-forget` | Edit the guide directly: add a rule, or drop one by its text or its number. |
+| `cortex-lock` / `cortex-unlock` | Freeze the guide (follow it, stop learning) or open it again. |
+| `cortex-goal` | A self-correction reflex: name the target stage, derive the path to it backward, and pressure-test whether the plan is actually well thought out. |
 
-The state commands (`init`, `show`, `add`, `forget`, `lock`, `unlock`) are backed by `cortex.mjs`, a zero-dependency Node CLI you can also run by hand (`node cortex.mjs show`). `review` and `goal` are reasoning skills rather than CLI subcommands -- `review` reads `cortex.mjs status` for context and then the agent audits it, and `goal` is a pure backward-reasoning prompt. Everything honours `CORTEX_LOG=0`: disable the store and the guide layer disappears with it, leaving the pure reflexes.
+The state commands (`cortex-init`, `cortex-show`, `cortex-add`, `cortex-forget`, `cortex-lock`, `cortex-unlock`) are backed by `cortex.mjs`, a zero-dependency Node CLI you can also run by hand (`node cortex.mjs show`). `cortex-review` and `cortex-goal` are reasoning skills rather than CLI subcommands -- `cortex-review` reads `cortex.mjs status` for context and then the agent audits it, and `cortex-goal` is a pure backward-reasoning prompt. Everything honours `CORTEX_LOG=0`: disable the store and the guide layer disappears with it, leaving the pure reflexes.
 
 > **Status: Phase 1 (the spine).** The guide is real, visible, steerable and lockable, and the capture nudge rides on Frame. Phase 2 sharpens the *automatic* "I noticed a preference -- save it?" detection and the positive/negative read of each exchange; Phase 3 treats the guide as full inherited reasoning (conflict resolution, per-context scope, a cross-project user-level guide). Designing is not migrating: the foundation ships and is tested before the smarter layers are added.
+
+## Requirements
+
+- **Node.js >= 18** on the PATH (tested on Node 18, 20, 22 and 24). On Windows, make sure `node` is on the system PATH and not only available through a version manager that does not export to the system PATH -- the hooks are invoked as `node "..."`.
+- **Claude Code**, with the `/plugin` command available.
+- **Git**, for installing from GitHub.
 
 ## Install
 
 The repo is its own single-plugin marketplace (`.claude-plugin/marketplace.json`, `source: "./"`). In a Claude Code session, via the `/plugin` commands:
 
-1. Add the marketplace: `/plugin marketplace add Jerome-WhytCard-dev/WhytCard-Cortex` (or the full GitHub repo URL).
+1. Add the marketplace: `/plugin marketplace add Jerome-WhytCard-dev/WhytCard-Cortex` (or the full GitHub repo URL). This fetches the plugin directly from GitHub -- no npm install, no clone needed -- and works from any machine in the world that has Node and Claude Code installed.
 2. Enable the plugin: `/plugin install whytcard-cortex@whytcard-cortex`
 3. Reload without restarting: `/reload-plugins`
 4. Verify: `/plugin` (Installed tab) and `/hooks` (the 7 events should appear: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, SubagentStop, Stop).
 
 From a local clone rather than GitHub, replace step 1 with `/plugin marketplace add <path-to-the-cloned-folder>`: the command accepts both an `owner/repo` and a local folder path.
 
-The hooks load automatically on enable. No dependencies, the `.mjs` files are plain Node. Requirement: Node on the PATH (verified on Node v24). Once enabled, run **`/whytcard-cortex:init`** once to choose your working language and activate the guide, then **`/whytcard-cortex:show`** any time to see the live pipeline.
+The hooks load automatically on enable. No dependencies, the `.mjs` files are plain Node. Requirement: Node on the PATH (verified on Node v24). Once enabled, run **`/cortex-init`** once to choose your working language and activate the guide, then **`/cortex-show`** any time to see the live pipeline.
 
-Rollback: `/plugin disable whytcard-cortex@whytcard-cortex`, then if needed `/plugin uninstall whytcard-cortex@whytcard-cortex` and `/plugin marketplace remove whytcard-cortex`.
+### Uninstall
+
+To remove Cortex completely -- disable it first, then uninstall, then drop the marketplace:
+
+```
+/plugin disable whytcard-cortex@whytcard-cortex
+/plugin uninstall whytcard-cortex@whytcard-cortex
+/plugin marketplace remove whytcard-cortex
+```
 
 ## Testing
 

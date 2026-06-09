@@ -2,6 +2,28 @@
 
 All notable changes to WhytCard-Cortex. The format follows Keep a Changelog, the versioning follows SemVer.
 
+## [0.5.0] - 2026-06-09
+
+The polish-and-name pass: every command now carries a `cortex-` prefix so it is instantly recognisable and never collides with Claude Code built-ins, plus a round of repo hardening so Cortex is clean to install from GitHub for anyone, anywhere.
+
+### Changed
+- **All commands are now prefixed `cortex-`**: `cortex-init`, `cortex-show`, `cortex-add`, `cortex-forget`, `cortex-lock`, `cortex-unlock`, `cortex-review`, `cortex-goal`. The skill directories were renamed to match, since a plugin's command name comes from its directory (the frontmatter `name` is only the display label). **Breaking:** the old `/whytcard-cortex:show` form becomes `/whytcard-cortex:cortex-show` -- in practice you now type the short, collision-free `/cortex-show`. The CLI subcommands (`node cortex.mjs show`, `add`, ...) are unchanged.
+- README, `docs/DOCTRINE.md` and the `.cortex/` folder seeds updated to the new command names.
+
+### Fixed
+- **Shell-injection hardening** in `cortex-add` / `cortex-forget`: the rule text is now passed inside single quotes (`'$ARGUMENTS'`), so a `$`, backtick, `"` or `;` in a preference can no longer break out of the command. (`$ARGUMENTS` is substituted textually *before* the shell runs, so the previous double-quoted form was not injection-safe.)
+- **`SEED_GUIDE` declaration order** in `hooks/cortex-store.mjs`: moved up beside the other seeds (before `ensureDir`, which uses it). ESM `const` is not hoisted, so the old order was a trap for contributors -- harmless at runtime, fixed for clarity.
+- Removed `"private": true` from `package.json` -- the repo is public and installable from GitHub.
+
+### Added
+- `.github/CONTRIBUTING.md` (report a bug, suggest a change, run the tests, code style).
+- `.github/ISSUE_TEMPLATE/bug_report.md`.
+- README: a CI badge, a `## Requirements` section (Node >= 18 with a Windows PATH note, Claude Code, Git), a dedicated `### Uninstall` section, and a note that the marketplace install fetches straight from GitHub and works from any machine.
+
+### Notes
+- No hook logic, injected question, filter or throttle was touched -- only command names, documentation, and the repo surface.
+- Bumped to 0.5.0 across `plugin.json`, `marketplace.json` and `package.json`.
+
 ## [0.4.0] - 2026-06-07
 
 The living pass: Cortex stops being only a set of universal reflexes and gains a second plane -- a **personal, consent-based guide** it learns from you and a **command surface** to see and steer it. The reflexes still ask, never order; what is new is that, with your explicit "yes", a durable preference can become a standing line Cortex injects on every prompt -- *your* reasoning, inherited, not a generic recipe. This is Phase 1 (the spine): the guide is real, visible, steerable and lockable; the automatic "I noticed you stated a preference -- save it?" capture rides on the Frame nudge and will sharpen in Phase 2.

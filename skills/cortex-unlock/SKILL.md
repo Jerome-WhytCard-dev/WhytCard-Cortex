@@ -1,5 +1,5 @@
 ---
-name: unlock
+name: cortex-unlock
 description: Unfreeze the Cortex guide -- let it learn again and offer to capture new preferences.
 disable-model-invocation: true
 allowed-tools: Bash(node:*)

@@ -1,5 +1,5 @@
 ---
-name: goal
+name: cortex-goal
 description: Reason backward from a target -- name the stage to reach, derive the path to it, and pressure-test whether the plan is actually well thought out.
 argument-hint: <the goal / stage to reach>
 ---

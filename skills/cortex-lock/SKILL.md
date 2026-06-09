@@ -1,5 +1,5 @@
 ---
-name: lock
+name: cortex-lock
 description: Freeze the Cortex guide -- stop proposing changes and just follow the current pipeline.
 disable-model-invocation: true
 allowed-tools: Bash(node:*)

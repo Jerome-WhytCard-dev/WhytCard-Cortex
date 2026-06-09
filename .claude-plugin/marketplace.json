@@ -8,8 +8,8 @@
     {
       "name": "whytcard-cortex",
       "source": "./",
-      "description": "A reasoning pipeline as reflex hooks, plus a living guide it learns by consent and a /whytcard-cortex command surface to steer it. The right question at the right moment, not orders.",
-      "version": "0.4.0"
+      "description": "A reasoning pipeline as reflex hooks, plus a living guide it learns by consent and a /cortex-* command surface to steer it. The right question at the right moment, not orders.",
+      "version": "0.5.0"
     }
   ]
 }

@@ -1,5 +1,5 @@
 ---
-name: review
+name: cortex-review
 description: Analyse the current Cortex pipeline and guide, and suggest how to converge toward a sharper, conflict-free set of rules.
 allowed-tools: Bash(node:*)
 ---
@@ -15,4 +15,4 @@ Audit it for the user, in their working language. Look for:
 - rules that look stale or one-off (ask whether to drop them),
 - gaps -- preferences they keep voicing in practice but never saved.
 
-Propose concrete edits as `add` / `forget` commands; do NOT apply them without the user's go-ahead. Keep it short and honest: fewer, sharper rules beat a long list. The goal is the user's "perfect" pipeline, not a big one.
+Propose concrete edits as `cortex-add` / `cortex-forget` commands; do NOT apply them without the user's go-ahead. Keep it short and honest: fewer, sharper rules beat a long list. The goal is the user's "perfect" pipeline, not a big one.

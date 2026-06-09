@@ -51,7 +51,7 @@ const SEED_README = [
   "",
   "- **`guide.md`** -- your *inherited reasoning*: durable preferences about HOW the agent should",
   "  work here, captured with your consent. Injected at the start of every prompt and session so",
-  "  the agent follows your way. Steer it with the `/whytcard-cortex` commands (add / forget / lock).",
+  "  the agent follows your way. Steer it with the `cortex-*` commands (cortex-add / cortex-forget / cortex-lock).",
   "- **`memory.md`** -- durable, project-specific *facts* the agent verified (decisions, traps).",
   "  Orient re-injects it at every session start so hard-won knowledge is not relearned each time.",
   "- **`config.json`** -- Cortex settings for this project (working language, lock state, scope),",
@@ -61,6 +61,16 @@ const SEED_README = [
   "- **`.gitignore`** -- the git policy for this folder. Edit it per project.",
   "",
   "Disable all of this (back to pure stateless reflexes) with `CORTEX_LOG=0`.",
+  "",
+].join("\n");
+
+const SEED_GUIDE = [
+  "# Cortex guide",
+  "",
+  "> Your inherited reasoning: durable preferences about HOW the agent should work here,",
+  "> captured with your consent. Cortex injects these at the start of every prompt and session,",
+  "> so the agent follows your way rather than a generic default. One short, true, actionable",
+  "> line per rule. Add or drop them with cortex-add / cortex-forget, or freeze with cortex-lock.",
   "",
 ].join("\n");
 
@@ -150,16 +160,6 @@ export function readMemory(root) {
 
 const CONFIG_DEFAULTS = { version: 1, language: "", locked: false, scope: "project" };
 const GUIDE_CAP = 2000;
-
-const SEED_GUIDE = [
-  "# Cortex guide",
-  "",
-  "> Your inherited reasoning: durable preferences about HOW the agent should work here,",
-  "> captured with your consent. Cortex injects these at the start of every prompt and session,",
-  "> so the agent follows your way rather than a generic default. One short, true, actionable",
-  "> line per rule. Add or drop them with the /whytcard-cortex commands, or freeze with lock.",
-  "",
-].join("\n");
 
 // Read the project config (.cortex/config.json), merged over the defaults. Never throws.
 export function readConfig(root) {
